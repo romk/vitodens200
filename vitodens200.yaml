@@ -1,0 +1,125 @@
+substitutions:
+  device: vitodens200
+  name: Vitodens200
+
+esphome:
+  name: ${device}
+  includes:
+    - custom_components/vitodens
+  libraries:
+    - VitoWiFi
+
+esp32:
+  board: esp32dev
+
+# Settings for Wifi, Web Server, API, etc
+ # Not shown for this example, substitute with your own
+<<: !include common/common.yaml
+
+custom_component:
+  - lambda: |-
+      return {boiler};
+
+# Sensors
+sensor:
+  - platform: custom
+    lambda: |-
+      return {
+          boiler->sensor_set_room_standard_temp,
+          boiler->sensor_set_room_reduced_temp,
+          boiler->sensor_set_dhw_temp,
+          boiler->sensor_set_heating_curve_slope,
+          boiler->sensor_set_heating_curve_level,
+          boiler->sensor_outside_temp,
+          boiler->sensor_room_temp,
+          boiler->sensor_flow_temp,
+          boiler->sensor_dhw_cts1_temp,
+          boiler->sensor_dhw_cts2_temp,
+          boiler->sensor_dhw_primary_pump_status,
+          boiler->sensor_dhw_circulation_pump_status,
+          boiler->sensor_burner_status
+      };
+    sensors:
+      - name: ${name} Set room standard temperature
+        unit_of_measurement: °C
+        accuracy_decimals: 0
+      - name: ${name} Set room reduced temperature
+        unit_of_measurement: °C
+        accuracy_decimals: 0
+      - name: ${name} Set DHW temperature
+        unit_of_measurement: °C
+        filters:
+          - multiply: 10
+      - name: ${name} Set heating curve slope
+        accuracy_decimals: 1
+        filters:
+          - multiply: 0.1
+      - name: ${name} Set heating curve level
+        unit_of_measurement: °C
+      - name: ${name} Outside temperature
+        unit_of_measurement: °C
+        accuracy_decimals: 1
+      - name: ${name} Room temperature
+        unit_of_measurement: °C
+        accuracy_decimals: 1
+      - name: ${name} Flow temperature
+        unit_of_measurement: °C
+        accuracy_decimals: 1
+      - name: ${name} DHW CTS1 temperature
+        unit_of_measurement: °C
+        accuracy_decimals: 1
+      - name: ${name} DHW CTS2 temperature
+        unit_of_measurement: °C
+        accuracy_decimals: 1
+      - name: ${name} DHW primary pump status
+      - name: ${name} DHW circulation pump status
+      - name: ${name} Burner status
+        unit_of_measurement: "%"
+
+
+binary_sensor:
+  - platform: custom
+    lambda: |-
+      return {
+          boiler->sensor_economy_mode,
+          boiler->sensor_party_mode,
+          boiler->sensor_heating_pump_status,
+        };
+    binary_sensors:
+      - name: ${name} Economy mode
+      - name: ${name} Party mode
+      - name: ${name} Heating pump status
+        device_class: running
+
+text_sensor:
+  - platform: custom
+    lambda: |-
+      return {
+        boiler->sensor_get_device_type,
+        boiler->sensor_set_operating_mode,
+        boiler->sensor_current_operating_mode
+      };
+    text_sensors:
+      - name: ${name} Get device type
+      - name: ${name} Set operating mode
+        icon: mdi:radiator
+      - name: ${name} Current operating mode
+        icon: mdi:radiator
+
+# Climate control
+climate:
+  - platform: custom
+    lambda: |-
+      return {boiler};
+
+    climates:
+      - name: "Heating"
+        visual:
+          min_temperature: 15
+          max_temperature: 25
+          temperature_step: 0.1
+
+# for remote reboot
+switch:
+  - platform: restart
+    name: "Living Room Restart"
