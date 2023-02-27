@@ -114,9 +114,7 @@ Vitodens200::Vitodens200() :
   _dp_get_device_type("getDeviceType", "boiler", 0x00F8),
 
   // Operating data HC1
-  // differs from Vitogate 200 Type EIB documentation (0x2330)
-  // 0x2303 doesn't work
-  _dp_set_operating_mode("setOperatingMode", "boiler", 0x2323),
+  _dp_set_operating_mode("setOperatingMode", "boiler", 0x2323, true),
   _dp_set_room_standard_temp("roomStandardTemp", "boiler", 0x2306),
   _dp_set_room_reduced_temp("roomReducedTemp", "boiler", 0x2307),
   _dp_set_dhw_temp("setDHWTemp", "boiler", 0x6300),
@@ -206,12 +204,15 @@ void Vitodens200::_set_operating_mode_cb(TextSensor* sensor, const IDatapoint& d
   switch(code) {
     case 0:
       t << "Standby mode";
+      this->mode = climate::CLIMATE_MODE_OFF;
       break;
     case 1:
       t << "DHW only";
+      this->mode = climate::CLIMATE_MODE_OFF;
       break;
     case 2:
       t << "Central heating and DHW";
+      this->mode = climate::CLIMATE_MODE_AUTO;
       break;
     case 3:
       t << "Permanently red. Operation";
@@ -223,7 +224,10 @@ void Vitodens200::_set_operating_mode_cb(TextSensor* sensor, const IDatapoint& d
       t << "Unknown (" <<code <<")";
       break;
   }
+  // publish sensor
   sensor->publish_state(t.str());
+  // publish climate
+  publish_state();
 }
 
 void Vitodens200::_raw_cb(TextSensor* sensor, const IDatapoint& dp, DPValue value) {
@@ -308,8 +312,15 @@ void Vitodens200::control(const ClimateCall &call) {
       // ...
         ESP_LOGI("Vitodens200", "New mode requested.");
       // Publish updated state
-//      this->mode = mode;
-//      this->publish_state();
+      if (mode == climate::CLIMATE_MODE_OFF) {
+          // set to stand-by
+          DPValue value((uint8_t)0);
+          VitoWiFi.writeDatapoint(_dp_set_operating_mode, value);
+      } else if (mode == climate::CLIMATE_MODE_AUTO) {
+          // set to heat + dhw
+          DPValue value((uint8_t)2);
+          VitoWiFi.writeDatapoint(_dp_set_operating_mode, value);
+      }
     }
     if (call.get_target_temperature().has_value()) {
       // User requested target temperature change
@@ -325,7 +336,7 @@ ClimateTraits Vitodens200::traits() {
     // The capabilities of the climate device
     auto traits = climate::ClimateTraits();
     traits.set_supports_current_temperature(true);
-    traits.set_supported_modes({climate::CLIMATE_MODE_OFF, climate::CLIMATE_MODE_HEAT});
+    traits.set_supported_modes({climate::CLIMATE_MODE_OFF, climate::CLIMATE_MODE_AUTO});
     return traits;
 }
 
