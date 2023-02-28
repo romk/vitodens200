@@ -56,6 +56,7 @@ class Vitodens200 : public Component, public Climate {
     void _current_operating_mode_cb(TextSensor *sensor, const IDatapoint& dp, DPValue value);
     void _set_operating_mode_cb(TextSensor *sensor, const IDatapoint& dp, DPValue value);
     void _raw_cb(TextSensor *sensor, const IDatapoint& dp, DPValue value);
+    void _climate_preset_cb(BinarySensor *sensor, const IDatapoint &dp, DPValue value, ClimatePreset preset);
 
     // Climate callbacks
     void _room_temp_cb(const IDatapoint& dp, DPValue value);
@@ -213,17 +214,14 @@ void Vitodens200::_set_operating_mode_cb(TextSensor* sensor, const IDatapoint& d
     case 0:
       t << "Standby mode";
       this->mode = climate::CLIMATE_MODE_OFF;
-      this->preset = climate::CLIMATE_PRESET_NONE;
       break;
     case 1:
       t << "DHW only";
       this->mode = climate::CLIMATE_MODE_OFF;
-      this->preset = climate::CLIMATE_PRESET_NONE;
       break;
     case 2:
       t << "Central heating and DHW";
       this->mode = climate::CLIMATE_MODE_AUTO;
-      this->preset = climate::CLIMATE_PRESET_HOME;
       break;
     case 3:
       t << "Permanently red. Operation";
@@ -248,19 +246,36 @@ void Vitodens200::_raw_cb(TextSensor* sensor, const IDatapoint& dp, DPValue valu
   sensor->publish_state(str);
 }
 
-void Vitodens200::_room_temp_cb(const IDatapoint& dp, DPValue value) {
-  ESP_LOGD("optolink", "Datapoint %s - %s: %d", dp.getGroup(), dp.getName(), value.getFloat());
-  sensor_room_temp->publish_state(value.getFloat());
-  current_temperature = value.getFloat();
-  publish_state();
+void Vitodens200::_room_temp_cb(const IDatapoint &dp, DPValue value) {
+    ESP_LOGD("optolink", "Datapoint %s - %s: %d", dp.getGroup(), dp.getName(), value.getFloat());
+    sensor_room_temp->publish_state(value.getFloat());
+    if (current_temperature != value.getFloat()) {
+        current_temperature = value.getFloat();
+        publish_state();
+    }
 }
 
-void Vitodens200::_set_room_standard_temp_cb(const IDatapoint& dp, DPValue value) {
-  ESP_LOGD("optolink", "Datapoint %s - %s: %d", dp.getGroup(), dp.getName(), value.getU8());
-  sensor_set_room_standard_temp->publish_state(value.getU8());
-  target_temperature = value.getU8();
-  publish_state();
+void Vitodens200::_set_room_standard_temp_cb(const IDatapoint &dp, DPValue value) {
+    ESP_LOGD("optolink", "Datapoint %s - %s: %d", dp.getGroup(), dp.getName(), value.getU8());
+    sensor_set_room_standard_temp->publish_state(value.getU8());
+    if (target_temperature != value.getU8()) {
+        target_temperature = value.getU8();
+        publish_state();
+    }
 }
+
+void Vitodens200::_climate_preset_cb(BinarySensor *sensor, const IDatapoint &dp, DPValue value, ClimatePreset preset) {
+    ESP_LOGD("optolink", "Datapoint %s - %s: %d", dp.getGroup(), dp.getName(), value.getBool());
+    sensor->publish_state(value.getBool());
+    if (value.getBool()) {
+        this->preset = preset;
+        publish_state();
+    } else if (this->preset == preset) {
+        this->preset = climate::CLIMATE_PRESET_NONE;
+        publish_state();
+    }
+}
+
 
 void Vitodens200::setup() {
     // enable logging
@@ -276,8 +291,8 @@ void Vitodens200::setup() {
   _dp_set_dhw_temp.setCallback(bind(&Vitodens200::_float_cb, this, sensor_set_dhw_temp, _1, _2));
   _dp_set_heating_curve_slope.setCallback(bind(&Vitodens200::_short_temp_cb, this, sensor_set_heating_curve_slope, _1, _2));
   _dp_set_heating_curve_level.setCallback(bind(&Vitodens200::_short_temp_cb, this, sensor_set_heating_curve_level, _1, _2));
-  _dp_economy_mode.setCallback(bind(&Vitodens200::_binary_cb, this, sensor_economy_mode, _1, _2));
-  _dp_party_mode.setCallback(bind(&Vitodens200::_binary_cb, this, sensor_party_mode, _1, _2));
+  _dp_economy_mode.setCallback(bind(&Vitodens200::_climate_preset_cb, this, sensor_economy_mode, _1, _2, climate::CLIMATE_PRESET_ECO));
+  _dp_party_mode.setCallback(bind(&Vitodens200::_climate_preset_cb, this, sensor_party_mode, _1, _2, climate::CLIMATE_PRESET_COMFORT));
 
   // Boiler
   _dp_outside_temp.setCallback(bind(&Vitodens200::_float_cb, this, sensor_outside_temp, _1, _2));
