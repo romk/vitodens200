@@ -60,7 +60,7 @@ class Vitodens200 : public Component, public Climate {
 
 
     // Scheduled call for initiating communication via optolink
-    void _comm();
+    void _comm(const char*);
 
   public:
     // Device data
@@ -111,41 +111,40 @@ VitoWiFi_setProtocol(P300);
 // optolink class definitions
 Vitodens200::Vitodens200() :
   // Device data
-  _dp_get_device_type("getDeviceType", "boiler", 0x00F8),
+  _dp_get_device_type("getDeviceType", "slow", 0x00F8),
 
   // Operating data HC1
-  _dp_set_operating_mode("setOperatingMode", "boiler", 0x2323, true),
-  _dp_set_room_standard_temp("roomStandardTemp", "boiler", 0x2306),
-  _dp_set_room_reduced_temp("roomReducedTemp", "boiler", 0x2307),
-  _dp_set_dhw_temp("setDHWTemp", "boiler", 0x6300),
-  _dp_set_heating_curve_slope("setHeatingCurveSlope", "boiler", 0x27D3),
-  _dp_set_heating_curve_level("setHeatingCurveLevel", "boiler", 0x27D4),
-  _dp_economy_mode("economyMode", "boiler", 0x2331),
-  _dp_party_mode("partymode", "boiler", 0x2330),
+  _dp_set_operating_mode("setOperatingMode", "fast", 0x2323, true),
+  _dp_set_room_standard_temp("roomStandardTemp", "fast", 0x2306),
+  _dp_set_room_reduced_temp("roomReducedTemp", "slow", 0x2307),
+  _dp_set_dhw_temp("setDHWTemp", "fast", 0x6300),
+  _dp_set_heating_curve_slope("setHeatingCurveSlope", "slow", 0x27D3),
+  _dp_set_heating_curve_level("setHeatingCurveLevel", "slow", 0x27D4),
+  _dp_economy_mode("economyMode", "fast", 0x2331),
+  _dp_party_mode("partymode", "fast", 0x2330),
 
   // Boiler
-  _dp_outside_temp("outsideTemp", "boiler", 0x5525),
+  _dp_outside_temp("outsideTemp", "slow", 0x5525),
 
   // Heating circuit HC1
-  _dp_current_operating_mode("currentOperatingMode", "boiler", 0x2500),
-  _dp_flow_temp("flowTemp", "boiler", 0x0810),
-  _dp_heating_pump_status("heatingPumpStatus", "boiler", 0x7663),
-  _dp_room_temp("roomTemp", "boiler", 0x0896),
+  _dp_current_operating_mode("currentOperatingMode", "slow", 0x2500),
+  _dp_flow_temp("flowTemp", "fast", 0x0810),
+  _dp_heating_pump_status("heatingPumpStatus", "fast", 0x7663),
+  _dp_room_temp("roomTemp", "slow", 0x0896),
 
   // DHW
-  _dp_dhw_cts1_temp("DHW CTS1 Temp", "dhw", 0x0812),
-  _dp_dhw_cts2_temp("DHW CTS2 Temp", "dhw", 0x0814),
-  _dp_dhw_primary_pump_status("DHW_PrimaryPumpStatus", "dhw", 0x6513),
-  _dp_dhw_circulation_pump_status("DHW_CirculationPumpStatus", "dhw", 0x6515),
+  _dp_dhw_cts1_temp("DHW CTS1 Temp", "slow", 0x0812),
+  _dp_dhw_cts2_temp("DHW CTS2 Temp", "slow", 0x0814),
+  _dp_dhw_primary_pump_status("DHW_PrimaryPumpStatus", "fast", 0x6513),
+  _dp_dhw_circulation_pump_status("DHW_CirculationPumpStatus", "fast", 0x6515),
 
   // Burner
-  _dp_burner_status("burnerStatus", "burner", 0x55D3)
+  _dp_burner_status("burnerStatus", "fast", 0x55D3)
 {
 }
 
-void Vitodens200::_comm() {
-  VitoWiFi.readAll();
-//  VitoWiFi.readGroup("dhw");
+void Vitodens200::_comm(const char* group) {
+  VitoWiFi.readGroup(group);
 }
 
 void Vitodens200::_float_cb(Sensor* sensor, const IDatapoint& dp, DPValue value) {
@@ -295,8 +294,10 @@ void Vitodens200::setup() {
   //  VitoWiFi.setGlobalCallback(&Vitodens200::_global_cb);
 
   VitoWiFi.setup(&Serial2, RX2, TX2);
-//  VitoWiFi.setup(&Serial);
-  set_interval("vitodens200_comm", 30000, bind(&Vitodens200::_comm, this));
+  // slow group
+  set_interval("vitodens200_comm_slow", 60000, bind(&Vitodens200::_comm, this, "slow"));
+  // fast group
+  set_interval("vitodens200_comm_fast", 10000, bind(&Vitodens200::_comm, this, "fast"));
   ESP_LOGI("Vitodens200", "Component Initialized.");
 }
 

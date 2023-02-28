@@ -113,7 +113,7 @@ climate:
       return {boiler};
 
     climates:
-      - name: "Heating"
+      - name: "Living Room"
         visual:
           min_temperature: 15
           max_temperature: 25
