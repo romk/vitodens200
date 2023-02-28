@@ -10,6 +10,27 @@ using namespace std::placeholders;
 #define RX2 16
 #define TX2 17
 
+class PresetSwitch : public Component, public Switch {
+private:
+    IDatapoint& _dp;
+    uint _is_hot = 0;
+public:
+    PresetSwitch(IDatapoint *dp) : _dp(*dp) {};
+    void setup() override {
+        ESP_LOGI("Vitodens200", "PresetSwitch: setup()");
+    }
+    void write_state(bool state) override;
+    void publish_state(bool state) {
+        // avoid reverting to old status right away
+        ESP_LOGI("Vitodens200", "PresetSwitch: _is_hot = %d", _is_hot);
+        if (_is_hot > 0) {
+            _is_hot--;
+        } else {
+            Switch::publish_state(state);
+        }
+    }
+};
+
 class Vitodens200 : public Component, public Climate {
   private:
     // Device data
@@ -56,7 +77,7 @@ class Vitodens200 : public Component, public Climate {
     void _current_operating_mode_cb(TextSensor *sensor, const IDatapoint& dp, DPValue value);
     void _set_operating_mode_cb(TextSensor *sensor, const IDatapoint& dp, DPValue value);
     void _raw_cb(TextSensor *sensor, const IDatapoint& dp, DPValue value);
-    void _climate_preset_cb(BinarySensor *sensor, const IDatapoint &dp, DPValue value, ClimatePreset preset);
+    void _climate_preset_cb(BinarySensor *sensor, const IDatapoint &dp, DPValue value, ClimatePreset preset, PresetSwitch*);
 
     // Climate callbacks
     void _room_temp_cb(const IDatapoint& dp, DPValue value);
@@ -98,6 +119,10 @@ class Vitodens200 : public Component, public Climate {
     // Burner
     Sensor *sensor_burner_status = new Sensor();
 
+    // Switches
+    PresetSwitch *economy_switch = new PresetSwitch(&_dp_economy_mode);
+    PresetSwitch *party_switch = new PresetSwitch(&_dp_party_mode);
+
     // Test
 //    TextSensor *sensor_test = new TextSensor();
 
@@ -115,6 +140,15 @@ class Vitodens200 : public Component, public Climate {
 VitoWiFi_setProtocol(P300);
 
 
+void PresetSwitch::write_state(bool state) {
+    ESP_LOGI("Vitodens200", "PresetSwitch write_state(): %d", state);
+    // don't allow the next update to revert the state
+    DPValue value(state);
+    VitoWiFi.writeDatapoint(_dp, value);
+    publish_state(state);
+    _is_hot = 2;
+}
+
 // optolink class definitions
 Vitodens200::Vitodens200() :
   // Device data
@@ -127,8 +161,8 @@ Vitodens200::Vitodens200() :
   _dp_set_dhw_temp("setDHWTemp", "fast", 0x6300),
   _dp_set_heating_curve_slope("setHeatingCurveSlope", "slow", 0x27D3),
   _dp_set_heating_curve_level("setHeatingCurveLevel", "slow", 0x27D4),
-  _dp_economy_mode("economyMode", "fast", 0x2302),
-  _dp_party_mode("partymode", "fast", 0x2303),
+  _dp_economy_mode("economyMode", "fast", 0x2302, true),
+  _dp_party_mode("partymode", "fast", 0x2303, true),
 
   // Boiler
   _dp_outside_temp("outsideTemp", "slow", 0x5525),
@@ -264,7 +298,7 @@ void Vitodens200::_set_room_standard_temp_cb(const IDatapoint &dp, DPValue value
     }
 }
 
-void Vitodens200::_climate_preset_cb(BinarySensor *sensor, const IDatapoint &dp, DPValue value, ClimatePreset preset) {
+void Vitodens200::_climate_preset_cb(BinarySensor *sensor, const IDatapoint &dp, DPValue value, ClimatePreset preset, PresetSwitch *preset_switch) {
     ESP_LOGD("optolink", "Datapoint %s - %s: %d", dp.getGroup(), dp.getName(), value.getBool());
     sensor->publish_state(value.getBool());
     if (value.getBool()) {
@@ -274,6 +308,8 @@ void Vitodens200::_climate_preset_cb(BinarySensor *sensor, const IDatapoint &dp,
         this->preset = climate::CLIMATE_PRESET_NONE;
         publish_state();
     }
+
+    preset_switch->publish_state(value.getBool());
 }
 
 
@@ -291,8 +327,8 @@ void Vitodens200::setup() {
   _dp_set_dhw_temp.setCallback(bind(&Vitodens200::_float_cb, this, sensor_set_dhw_temp, _1, _2));
   _dp_set_heating_curve_slope.setCallback(bind(&Vitodens200::_short_temp_cb, this, sensor_set_heating_curve_slope, _1, _2));
   _dp_set_heating_curve_level.setCallback(bind(&Vitodens200::_short_temp_cb, this, sensor_set_heating_curve_level, _1, _2));
-  _dp_economy_mode.setCallback(bind(&Vitodens200::_climate_preset_cb, this, sensor_economy_mode, _1, _2, climate::CLIMATE_PRESET_ECO));
-  _dp_party_mode.setCallback(bind(&Vitodens200::_climate_preset_cb, this, sensor_party_mode, _1, _2, climate::CLIMATE_PRESET_COMFORT));
+  _dp_economy_mode.setCallback(bind(&Vitodens200::_climate_preset_cb, this, sensor_economy_mode, _1, _2, climate::CLIMATE_PRESET_ECO, economy_switch));
+  _dp_party_mode.setCallback(bind(&Vitodens200::_climate_preset_cb, this, sensor_party_mode, _1, _2, climate::CLIMATE_PRESET_COMFORT, party_switch));
 
   // Boiler
   _dp_outside_temp.setCallback(bind(&Vitodens200::_float_cb, this, sensor_outside_temp, _1, _2));

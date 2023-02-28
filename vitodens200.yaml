@@ -125,3 +125,15 @@ climate:
 switch:
   - platform: restart
     name: "Living Room Restart"
+
+  - platform: custom
+    lambda: |-
+      return {
+        boiler->party_switch,
+        boiler->economy_switch
+      };
+    switches:
+      - name: "Party Mode"
+        icon: mdi:party-popper
+      - name: "Economy Mode"
+        icon: mdi:piggy-bank
