@@ -142,10 +142,12 @@ VitoWiFi_setProtocol(P300);
 
 void PresetSwitch::write_state(bool state) {
     ESP_LOGI("Vitodens200", "PresetSwitch write_state(): %d", state);
-    // don't allow the next update to revert the state
+    // don't block a quick toggle
+    _is_hot = 0;
     DPValue value(state);
     VitoWiFi.writeDatapoint(_dp, value);
     publish_state(state);
+    // don't allow the next update to revert the state
     _is_hot = 2;
 }
 
