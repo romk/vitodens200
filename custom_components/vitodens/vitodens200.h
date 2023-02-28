@@ -213,14 +213,17 @@ void Vitodens200::_set_operating_mode_cb(TextSensor* sensor, const IDatapoint& d
     case 0:
       t << "Standby mode";
       this->mode = climate::CLIMATE_MODE_OFF;
+      this->preset = climate::CLIMATE_PRESET_NONE;
       break;
     case 1:
       t << "DHW only";
       this->mode = climate::CLIMATE_MODE_OFF;
+      this->preset = climate::CLIMATE_PRESET_NONE;
       break;
     case 2:
       t << "Central heating and DHW";
       this->mode = climate::CLIMATE_MODE_AUTO;
+      this->preset = climate::CLIMATE_PRESET_HOME;
       break;
     case 3:
       t << "Permanently red. Operation";
@@ -350,6 +353,7 @@ ClimateTraits Vitodens200::traits() {
     auto traits = climate::ClimateTraits();
     traits.set_supports_current_temperature(true);
     traits.set_supported_modes({climate::CLIMATE_MODE_OFF, climate::CLIMATE_MODE_AUTO});
+    traits.set_supported_presets({climate::CLIMATE_PRESET_HOME, climate::CLIMATE_PRESET_SLEEP, CLIMATE_PRESET_COMFORT, CLIMATE_PRESET_ECO});
     return traits;
 }
 
