@@ -35,8 +35,6 @@ sensor:
           boiler->sensor_flow_temp,
           boiler->sensor_dhw_cts1_temp,
           boiler->sensor_dhw_cts2_temp,
-          boiler->sensor_dhw_primary_pump_status,
-          boiler->sensor_dhw_circulation_pump_status,
           boiler->sensor_burner_status
       };
     sensors:
@@ -71,8 +69,6 @@ sensor:
       - name: ${name} DHW CTS2 temperature
         unit_of_measurement: °C
         accuracy_decimals: 1
-      - name: ${name} DHW primary pump status
-      - name: ${name} DHW circulation pump status
       - name: ${name} Burner status
         unit_of_measurement: "%"
 
@@ -84,11 +80,17 @@ binary_sensor:
           boiler->sensor_economy_mode,
           boiler->sensor_party_mode,
           boiler->sensor_heating_pump_status,
+          boiler->sensor_dhw_primary_pump_status,
+          boiler->sensor_dhw_circulation_pump_status
         };
     binary_sensors:
       - name: ${name} Economy mode
       - name: ${name} Party mode
       - name: ${name} Heating pump status
+        device_class: running
+      - name: ${name} DHW primary pump status
+        device_class: running
+      - name: ${name} DHW circulation pump status
         device_class: running
 
 text_sensor:

@@ -37,11 +37,14 @@ class Vitodens200 : public Component, public Climate {
     // DHW
     DPTemp _dp_dhw_cts1_temp;
     DPTemp _dp_dhw_cts2_temp;
-    DPMode _dp_dhw_primary_pump_status;
-    DPMode _dp_dhw_circulation_pump_status;
+    DPStat _dp_dhw_primary_pump_status;
+    DPStat _dp_dhw_circulation_pump_status;
 
     // Burner
     DPMode _dp_burner_status;
+
+    // Test
+//    DPRaw _dp_test;
 
 
     // Callbacks for optolink data points
@@ -88,11 +91,14 @@ class Vitodens200 : public Component, public Climate {
     // DHW
     Sensor *sensor_dhw_cts1_temp = new Sensor();
     Sensor *sensor_dhw_cts2_temp = new Sensor();
-    Sensor *sensor_dhw_primary_pump_status = new Sensor();
-    Sensor *sensor_dhw_circulation_pump_status = new Sensor();
+    BinarySensor *sensor_dhw_primary_pump_status = new BinarySensor();
+    BinarySensor *sensor_dhw_circulation_pump_status = new BinarySensor();
 
     // Burner
     Sensor *sensor_burner_status = new Sensor();
+
+    // Test
+//    TextSensor *sensor_test = new TextSensor();
 
     // Climate
     ClimateTraits traits() override;
@@ -120,8 +126,8 @@ Vitodens200::Vitodens200() :
   _dp_set_dhw_temp("setDHWTemp", "fast", 0x6300),
   _dp_set_heating_curve_slope("setHeatingCurveSlope", "slow", 0x27D3),
   _dp_set_heating_curve_level("setHeatingCurveLevel", "slow", 0x27D4),
-  _dp_economy_mode("economyMode", "fast", 0x2331),
-  _dp_party_mode("partymode", "fast", 0x2330),
+  _dp_economy_mode("economyMode", "fast", 0x2302),
+  _dp_party_mode("partymode", "fast", 0x2303),
 
   // Boiler
   _dp_outside_temp("outsideTemp", "slow", 0x5525),
@@ -140,6 +146,9 @@ Vitodens200::Vitodens200() :
 
   // Burner
   _dp_burner_status("burnerStatus", "fast", 0x55D3)
+
+  // Test
+//  _dp_test("getTest", "fast", 0x2303)
 {
 }
 
@@ -158,8 +167,8 @@ void Vitodens200::_short_temp_cb(Sensor* sensor, const IDatapoint& dp, DPValue v
 }
 
 void Vitodens200::_binary_cb(BinarySensor* sensor, const IDatapoint& dp, DPValue value) {
-  ESP_LOGD("optolink", "Datapoint %s - %s: %d", dp.getGroup(), dp.getName(), value.getU8());
-  sensor->publish_state(value.getU8() != 0);
+  ESP_LOGD("optolink", "Datapoint %s - %s: %d", dp.getGroup(), dp.getName(), value.getBool());
+  sensor->publish_state(value.getBool());
 }
 
 void Vitodens200::_binary_u16_cb(BinarySensor* sensor, const IDatapoint& dp, DPValue value) {
@@ -279,11 +288,14 @@ void Vitodens200::setup() {
   // DHW
   _dp_dhw_cts1_temp.setCallback(bind(&Vitodens200::_float_cb, this, sensor_dhw_cts1_temp, _1, _2));
   _dp_dhw_cts2_temp.setCallback(bind(&Vitodens200::_float_cb, this, sensor_dhw_cts2_temp, _1, _2));
-  _dp_dhw_primary_pump_status.setCallback(bind(&Vitodens200::_short_temp_cb, this, sensor_dhw_primary_pump_status, _1, _2));
-  _dp_dhw_circulation_pump_status.setCallback(bind(&Vitodens200::_short_temp_cb, this, sensor_dhw_circulation_pump_status, _1, _2));
+  _dp_dhw_primary_pump_status.setCallback(bind(&Vitodens200::_binary_cb, this, sensor_dhw_primary_pump_status, _1, _2));
+  _dp_dhw_circulation_pump_status.setCallback(bind(&Vitodens200::_binary_cb, this, sensor_dhw_circulation_pump_status, _1, _2));
 
   // Burner
   _dp_burner_status.setCallback(bind(&Vitodens200::_short_temp_cb, this, sensor_burner_status, _1, _2));
+
+  // Test
+//  _dp_test.setLength(1).setCallback(bind(&Vitodens200::_raw_cb, this, sensor_test, _1, _2));
 
   // Climate callbacks
   _dp_room_temp.setCallback(bind(&Vitodens200::_room_temp_cb, this, _1, _2));
